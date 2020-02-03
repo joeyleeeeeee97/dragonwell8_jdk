@@ -28,12 +28,12 @@
  */
 
 import com.alibaba.wisp.engine.TimeOut;
+import com.alibaba.wisp.engine.WispTask;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
-
 
 import static jdk.testlibrary.Asserts.assertTrue;
 
@@ -45,7 +45,22 @@ public class PriorityQueueSortTest {
 	static Method poll = null;
 	static Method offer = null;
 
-	static TimeOut ILLEGAL_FLAG = new TimeOut(null, 1, false);
+	static Class<TimeOut> clazz;
+	static Constructor<TimeOut> constructor;
+
+	static {
+		try {
+			clazz = (Class<TimeOut>) Class.forName("com.alibaba.wisp.engine.TimeOut");
+			constructor = clazz.getDeclaredConstructor(Class.forName("com.alibaba.wisp.engine.WispTask"), long.class,
+					Class.forName("com.alibaba.wisp.engine.TimeOut$Action"));
+			ILLEGAL_FLAG = constructor.newInstance(null, 1,
+					Class.forName("com.alibaba.wisp.engine.TimeOut$Action").getEnumConstants()[1]);
+		} catch (Exception e) {
+			assertTrue(false, e.toString());
+		}
+	}
+
+	static TimeOut ILLEGAL_FLAG;
 
 	static class MyComparator implements Comparator<TimeOut> {
 		public int compare(TimeOut x, TimeOut y) {
@@ -94,7 +109,7 @@ public class PriorityQueueSortTest {
 
 	static TimeOut poll(Object pq) {
 		try {
-			return (TimeOut)poll.invoke(pq);
+			return (TimeOut) poll.invoke(pq);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return ILLEGAL_FLAG;
@@ -112,41 +127,45 @@ public class PriorityQueueSortTest {
 
 		Object pq = getTimerQueue();
 
+		try {
+			for (Iterator<Long> i = shuffled.iterator(); i.hasNext();)
+				add(pq, constructor.newInstance(null, i.next(),
+						Class.forName("com.alibaba.wisp.engine.TimeOut$Action").getEnumConstants()[1]));
 
-		for (Iterator<Long> i = shuffled.iterator(); i.hasNext(); )
-			add(pq, new TimeOut(null, i.next(), false));
-
-		List<Long> recons = new ArrayList<>();
-
-		while (true) {
-			TimeOut t = poll(pq);
-			if (t == null) {
-				break;
+			List<Long> recons = new ArrayList<>();
+			while (true) {
+				TimeOut t = poll(pq);
+				if (t == null) {
+					break;
+				}
+				recons.add(getDeadNano(t));
 			}
-			recons.add(getDeadNano(t));
-		}
-		assertTrue(recons.equals(sorted), "Sort failed");
+			assertTrue(recons.equals(sorted), "Sort failed");
 
-		for (Long val : recons) {
-			add(pq, new TimeOut(null, val, false));
-		}
-		recons.clear();
-		while(true){
-			TimeOut timeOut = poll(pq);
-			if (timeOut == null) {
-				break;
+			for (Long val : recons) {
+				add(pq, constructor.newInstance(null, val,
+						Class.forName("com.alibaba.wisp.engine.TimeOut$Action").getEnumConstants()[1]));
 			}
-			if(getDeadNano(timeOut)  % 2 == 1) {
-				recons.add(getDeadNano(timeOut));
+			recons.clear();
+			while (true) {
+				TimeOut timeOut = poll(pq);
+				if (timeOut == null) {
+					break;
+				}
+				if (getDeadNano(timeOut) % 2 == 1) {
+					recons.add(getDeadNano(timeOut));
+				}
 			}
+
+			Collections.sort(recons);
+
+			for (Iterator<Long> i = sorted.iterator(); i.hasNext();)
+				if ((i.next().intValue() % 2) != 1)
+					i.remove();
+
+			assertTrue(recons.equals(sorted), "Odd Sort failed");
+		} catch (Exception e) {
+			assertTrue(false, e.toString());
 		}
-
-		Collections.sort(recons);
-
-		for (Iterator<Long> i = sorted.iterator(); i.hasNext(); )
-			if ((i.next().intValue() % 2) != 1)
-				i.remove();
-
-		assertTrue(recons.equals(sorted), "Odd Sort failed");
 	}
 }
