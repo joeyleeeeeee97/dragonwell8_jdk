@@ -1023,18 +1023,18 @@ class Thread implements Runnable {
 
         if (this != Thread.currentThread()) {
             checkAccess();
-        }
 
-        synchronized (blockerLock) {
-            Interruptible b = blocker;
-            if (b != null) {
-                if (WEA != null && wispTask != null) {
-                    WEA.interrupt(wispTask);
-                } else {
-                    interrupt0();           // Just to set the interrupt flag
+            synchronized (blockerLock) {
+                Interruptible b = blocker;
+                if (b != null) {
+                    if (WEA != null && wispTask != null) {
+                        WEA.interrupt(wispTask);
+                    } else {
+                        interrupt0();           // Just to set the interrupt flag
+                    }
+                    b.interrupt(this);
+                    return;
                 }
-                b.interrupt(this);
-                return;
             }
         }
 
